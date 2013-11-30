@@ -132,17 +132,37 @@ class NVD3Chart:
         self.header_css = [
             '<link href="%s" rel="stylesheet">\n' % h for h in
             (
-                self.assets_directory + 'nvd3/src/nv.d3.css',
+                self.get_link('nvd3/src/nv.d3.css'),
             )
         ]
 
         self.header_js = [
             '<script src="%s"></script>\n' % h for h in
             (
-                self.assets_directory + 'd3/d3.min.js',
-                self.assets_directory + 'nvd3/nv.d3.min.js'
+                self.get_link('d3/d3.min.js'),
+                self.get_link('nvd3/nv.d3.min.js'),
             )
         ]
+        
+    def get_link(self, file):
+        """
+        get link using ``self.assets_directory``,
+        this function was added to use rawgithub which does 
+        uses a ``master`` suffix
+        """
+        if self.assets_directory == "rawgithub" :
+            if file == "nvd3/src/nv.d3.css" :
+                return "http://rawgithub.com/novus/nvd3/master/nv.d3.css"
+            elif file == "d3/d3.min.js" :
+                return "http://rawgithub.com/mbostock/d3/master/d3.min.js"
+            elif "/" in file :
+                spl = file.split("/")
+                res = "/".join(spl[:-1] + ["master", spl[-1]])
+                return "http://rawgithub.com/novus/" + res
+            else :
+                return "http://rawgithub.com/novus/master/" + file
+        else :
+            return self.assets_directory + file
 
     def add_serie(self, y, x, name=None, extra={}, **kwargs):
         """
