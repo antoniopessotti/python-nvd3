@@ -11,6 +11,7 @@ Project location : https://github.com/areski/python-nvd3
 
 from optparse import OptionParser
 from string import Template
+from slugify import slugify
 import json
 
 template_content_nvd3 = """
@@ -21,12 +22,14 @@ $jschart
 template_page_nvd3 = """
 <!DOCTYPE html>
 <html lang="en">
-<head>
-$header
-</head>
-<body>
-%s
-</body>
+    <head>
+        <meta charset="utf-8" />
+        $header
+    </head>
+    <body>
+    %s
+    </body>
+</html>
 """ % template_content_nvd3
 
 
@@ -44,7 +47,7 @@ class NVD3Chart:
     **Attributes**:
 
         * ``axislist`` - All X, Y axis list
-        * ``charttooltip_dateformat`` - date fromat for tooltip if x-axis is in date format
+        * ``charttooltip_dateformat`` - date format for tooltip if x-axis is in date format
         * ``charttooltip`` - Custom tooltip string
         * ``color_category`` - Defien color category (eg. category10, category20, category20c)
         * ``color_list`` - used by pieChart (eg. ['red', 'blue', 'orange'])
@@ -61,12 +64,17 @@ class NVD3Chart:
         * ``htmlcontent`` - Contain the htmloutput
         * ``htmlheader`` - Contain the html header
         * ``jschart`` - Javascript code as string
+        * ``margin_bottom`` - set the bottom margin
+        * ``margin_left`` - set the left margin
+        * ``margin_right`` - set the right margin
+        * ``margin_top`` - set the top margin
         * ``model`` - set the model (ex. pieChart, LineWithFocusChart, MultiBarChart)
         * ``resize`` - False / True
         * ``series`` - Series are list of data that will be plotted
         * ``stacked`` - False / True
         * ``style`` - Special style
         * ``template_page_nvd3`` - template variable
+        * ``use_interactive_guideline`` - False / True
         * ``width`` - Set graph width
         * ``x_axis_date`` - False / True
         * ``show_legend`` - False / True
@@ -82,6 +90,10 @@ class NVD3Chart:
     htmlheader = ''
     height = None
     width = None
+    margin_bottom = None
+    margin_left = None
+    margin_right = None
+    margin_top = None
     model = ''
     d3_select_extra = ''
     x_axis_date = False
@@ -97,8 +109,11 @@ class NVD3Chart:
     tooltip_condition_string = ''
     color_category = 'category10'  # category10, category20, category20c
     color_list = []  # for pie chart
+    donut = False  # for pie chart
+    donutRatio = 0.35
     tag_script_js = True
     charttooltip_dateformat = None
+    use_interactive_guideline = False
     x_axis_format = ''
     show_legend = True
     show_labels = True
@@ -118,19 +133,28 @@ class NVD3Chart:
         self.template_content_nvd3 = Template(template_content_nvd3)
         self.charttooltip_dateformat = '%d %b %Y'
 
-        self.name = kwargs.get('name', self.model)
+        self.slugify_name(kwargs.get('name', self.model))
         self.jquery_on_ready = kwargs.get('jquery_on_ready', False)
         self.color_category = kwargs.get('color_category', None)
+        self.color_list = kwargs.get('color_list', None)
+        self.donut = kwargs.get('donut', False)
+        self.donutRatio = kwargs.get('donutRatio', 0.35)
+        self.margin_bottom = kwargs.get('margin_bottom', 20)
+        self.margin_left = kwargs.get('margin_left', 60)
+        self.margin_right = kwargs.get('margin_right', 60)
+        self.margin_top = kwargs.get('margin_top', 30)
         self.stacked = kwargs.get('stacked', False)
         self.resize = kwargs.get('resize', False)
         self.show_legend = kwargs.get('show_legend', True)
         self.show_labels = kwargs.get('show_labels', True)
         self.tag_script_js = kwargs.get('tag_script_js', True)
+        self.use_interactive_guideline = kwargs.get("use_interactive_guideline", False)
+        self.chart_attr = kwargs.get("chart_attr", {})
         self.assets_directory = kwargs.get('assets_directory', './bower_components/')
 
         #CDN http://cdnjs.com/libraries/nvd3/ needs to make sure it's up to date
         self.header_css = [
-            '<link href="%s" rel="stylesheet">\n' % h for h in
+            '<link href="%s" rel="stylesheet" />\n' % h for h in
             (
                 self.get_link('nvd3/src/nv.d3.css'),
             )
@@ -163,6 +187,10 @@ class NVD3Chart:
                 return "http://rawgithub.com/novus/master/" + file
         else :
             return self.assets_directory + file
+
+    def slugify_name(self, name):
+        """Slufigy name with underscore"""
+        self.name = slugify(name).replace('-', '_')
 
     def add_serie(self, y, x, name=None, extra={}, **kwargs):
         """
@@ -238,8 +266,8 @@ class NVD3Chart:
         if 'disabled' in kwargs and kwargs['disabled']:
             data_keyvalue['disabled'] = 'true'
 
-        if 'color' in kwargs and kwargs['color']:
-            data_keyvalue['color'] = kwargs['color']
+        if 'color' in extra and extra['color']:
+            data_keyvalue['color'] = extra['color']
 
         if extra.get('date_format'):
             self.charttooltip_dateformat = extra['date_format']
@@ -289,7 +317,7 @@ class NVD3Chart:
         self.containerheader = containerheader
 
     def set_date_flag(self, date_flag=False):
-        """Set date falg"""
+        """Set date flag"""
         self.date_flag = date_flag
 
     def set_custom_tooltip_flag(self, custom_tooltip_flag):
@@ -395,7 +423,10 @@ class NVD3Chart:
 
         self.jschart += 'nv.addGraph(function() {\n'
 
-        self.jschart += stab(2) + 'var chart = nv.models.%s();\n' % self.model
+        self.jschart += stab(2) + 'var chart = nv.models.%s()' % self.model
+        if self.use_interactive_guideline:
+            self.jschart += '.useInteractiveGuideline(true)'
+        self.jschart += ';\n'
 
         if self.model != 'pieChart' and not self.color_list:
             if self.color_category:
@@ -404,13 +435,19 @@ class NVD3Chart:
         if self.stacked:
             self.jschart += stab(2) + "chart.stacked(true);"
 
+        self.jschart += stab(2) + 'chart.margin({top: %s, right: %s, bottom: %s, left: %s})\n' % \
+            (self.margin_top, self.margin_right, self.margin_bottom, self.margin_left)
+
         """
-        We want now to loop through all the defined Axis and add:
+        We want now to loop through all the defined axes and add:
             chart.y2Axis
                 .tickFormat(function(d) { return '$' + d3.format(',.2f')(d) });
         """
         if self.model != 'pieChart':
             for axis_name, a in list(self.axislist.items()):
+                # If we don't modify the axis at all, we skip over it.
+                if not a.items():
+                    continue
                 self.jschart += stab(2) + "chart.%s\n" % axis_name
                 for attr, value in list(a.items()):
                     self.jschart += stab(3) + ".%s(%s);\n" % (attr, value)
@@ -433,6 +470,11 @@ class NVD3Chart:
         self.build_custom_tooltip()
         self.jschart += self.charttooltip
 
+        # the shape attribute in kwargs is not applied when
+        # not allowing other shapes to be rendered
+        if self.model == 'scatterChart':
+            self.jschart += 'chart.scatter.onlyCircles(false);'
+
         if self.model != 'discreteBarChart':
             if self.show_legend:
                 self.jschart += stab(2) + "chart.showLegend(true);\n"
@@ -445,6 +487,19 @@ class NVD3Chart:
                 self.jschart += stab(2) + "chart.showLabels(true);\n"
             else:
                 self.jschart += stab(2) + "chart.showLabels(false);\n"
+
+            if self.donut:
+                self.jschart += stab(2) + "chart.donut(true);\n"
+                self.jschart += stab(2) + "chart.donutRatio(%f);\n" % self.donutRatio
+            else:
+                self.jschart += stab(2) + "chart.donut(false);\n"
+
+        # add custom chart attributes
+        for attr, value in self.chart_attr.items():
+            if type(value) == str and value.startswith("."):
+                self.jschart += stab(2) + "chart.%s%s;\n" % (attr, value)
+            else:
+                self.jschart += stab(2) + "chart.%s(%s);\n" % (attr, value)
 
         #Inject data to D3
         self.jschart += stab(2) + "d3.select('#%s svg')\n" % self.name + \
@@ -494,7 +549,8 @@ class NVD3Chart:
         #date format : see https://github.com/mbostock/d3/wiki/Time-Formatting
         if date:
             self.dateformat = format
-            axis['tickFormat'] = "function(d) { return d3.time.format('%s')(new Date(parseInt(d))) }\n" % self.dateformat
+            axis['tickFormat'] = "function(d) { return d3.time.format('%s')(new Date(parseInt(d))) }\n" % \
+                self.dateformat
             #flag is the x Axis is a date
             if name[0] == 'x':
                 self.x_axis_date = True
