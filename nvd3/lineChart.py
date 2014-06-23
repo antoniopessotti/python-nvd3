@@ -9,7 +9,9 @@ for d3.js without taking away the power that d3.js gives you.
 Project location : https://github.com/areski/python-nvd3
 """
 
-from .NVD3Chart import NVD3Chart, stab
+from .NVD3Chart import NVD3Chart
+from jinja2 import DebugUndefined, Environment, FileSystemLoader, Template
+import os
 
 
 class lineChart(NVD3Chart):
@@ -72,6 +74,14 @@ class lineChart(NVD3Chart):
             return chart;
         });
     """
+
+    CHART_FILENAME = "./line.html"
+
+    template_environment = Environment(lstrip_blocks = True, trim_blocks = True)
+    template_environment.loader = FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates'))
+    template_chart_nvd3 = template_environment.get_template(CHART_FILENAME)
+
+
     def __init__(self, **kwargs):
         NVD3Chart.__init__(self, **kwargs)
         height = kwargs.get('height', 450)
@@ -98,14 +108,4 @@ class lineChart(NVD3Chart):
 
     def buildjschart(self):
         NVD3Chart.buildjschart(self)
-        am_pm_js = ''
-        if self.x_axis_format == 'AM_PM':
-            am_pm_js += stab(2) + "function get_am_pm(d){\n"
-            am_pm_js += stab(3) + "if(d > 12){ d = d - 12; return (String(d) + 'PM');}\n"
-            am_pm_js += stab(3) + "else{ return (String(d) + 'AM');}\n"
-            am_pm_js += stab(2) + "};\n"
-
-            start_js = self.jschart.find('nv.addGraph')
-            replace_index = start_js
-            if start_js > 0:
-                self.jschart = self.jschart[:replace_index] + am_pm_js + self.jschart[replace_index:]
+        self.jschart = self.template_chart_nvd3.render(chart = self)

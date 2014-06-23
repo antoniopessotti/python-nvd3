@@ -46,7 +46,7 @@ html_open = """
 output_file.write(html_open)
 
 type = "discreteBarChart"
-chart = discreteBarChart(name='my-graphname', height=400, jquery_on_ready=True)
+chart = discreteBarChart(name='my graphname', height=400, jquery_on_ready=True)
 chart.set_containerheader("\n\n<h2>" + type + "</h2>\n\n")
 xdata = ["A", "B", "C", "D", "E", "F", "G"]
 ydata = [3, 12, -10, 5, 25, -7, 2]
@@ -58,8 +58,8 @@ chart.buildcontent()
 output_file.write(chart.htmlcontent)
 #---------------------------------------
 
-type = "pieChart"
-chart = pieChart(color_category='category20c', height=400,
+type = "pie Chart"
+chart = pieChart(name=type ,color_category='category20c', height=400,
                  width=400, jquery_on_ready=True)
 chart.set_containerheader("\n\n<h2>" + type + "</h2>\n\n")
 
@@ -311,6 +311,45 @@ extra_serie = {"tooltip": {"y_start": "", "y_end": " min"}}
 chart.add_serie(name="Duration", y=ydata2, x=xdata, extra=extra_serie)
 
 chart.buildcontent()
+
+output_file.write(chart.htmlcontent)
+
+
+#--------------------------------------------
+
+# linePlusBarWithFocusChart_AMPM
+
+name = "linePlusBarWithFocusChartAMPM"
+type = "linePlusBarWithFocusChart"
+chart = linePlusBarWithFocusChart(name=name, x_is_date=False, x_axis_format="AM_PM")
+chart.set_containerheader("\n\n<h2>" + name + "</h2>\n\n")
+
+xdata = [i for i in range(0, 24)]
+ydata = [0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 4, 3, 3, 5, 7, 5, 3, 16, 6, 9, 15, 4, 12]
+ydata2 = [9, 8, 11, 8, 3, 7, 10, 8, 6, 6, 9, 6, 5, 4, 3, 10, 0, 6, 3, 1, 0, 0, 0, 1]
+ydata3 = [9, 8, 15, 8, 4, 7, 20, 8, 4, 6, 0, 4, 5, 7, 3, 15, 30, 6, 3, 1, 0, 0, 0, 1]
+
+
+extra_serie_1 = {
+    "tooltip": {"y_start": "$ ", "y_end": ""},
+    "date_format": "",
+}
+kwargs = {"bar": "true"}
+chart.add_serie(name="serie 1", y=ydata, x=xdata, extra=extra_serie_1, **kwargs)
+
+extra_serie_2 = {
+    "tooltip": {"y_start": "$ ", "y_end": ""},
+    "date_format": "",
+}
+chart.add_serie(name="serie 2", y=ydata2, x=xdata, extra=extra_serie_2)
+
+extra_serie_3 = {
+    "tooltip": {"y_start": "$ ", "y_end": ""},
+    "date_format": "",
+}
+chart.add_serie(name="serie 3", y=ydata3, x=xdata, extra=extra_serie_3)
+
+chart.buildhtml()
 
 output_file.write(chart.htmlcontent)
 

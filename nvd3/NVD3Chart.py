@@ -9,28 +9,24 @@ for d3.js without taking away the power that d3.js gives you.
 Project location : https://github.com/areski/python-nvd3
 """
 
+from __future__ import unicode_literals
 from optparse import OptionParser
-from string import Template
-from slugify import slugify
+from jinja2 import Environment, FileSystemLoader
+from slugify import slugify_unicode
 import json
+import os
 
-template_content_nvd3 = """
-$container
-$jschart
-"""
 
-template_page_nvd3 = """
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        $header
-    </head>
-    <body>
-    %s
-    </body>
-</html>
-""" % template_content_nvd3
+LIB_DIR = os.path.dirname(globals()['__file__'])
+
+CONTENT_FILENAME = "./content.html"
+PAGE_FILENAME = "./page.html"
+
+template_environment = Environment(lstrip_blocks=True, trim_blocks=True)
+template_environment.loader = FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates'))
+
+template_content_nvd3 = template_environment.get_template(CONTENT_FILENAME)
+template_page_nvd3 = template_environment.get_template(PAGE_FILENAME)
 
 
 def stab(tab=1):
@@ -55,7 +51,6 @@ class NVD3Chart:
         * ``containerheader`` - Header for javascript code
         * ``count`` - chart count
         * ``custom_tooltip_flag`` - False / True
-        * ``d3_select_extra`` -
         * ``date_flag`` - x-axis contain date format or not
         * ``dateformat`` - see https://github.com/mbostock/d3/wiki/Time-Formatting
         * ``header_css`` - False / True
@@ -95,7 +90,6 @@ class NVD3Chart:
     margin_right = None
     margin_top = None
     model = ''
-    d3_select_extra = ''
     x_axis_date = False
     resize = False
     stacked = False
@@ -118,6 +112,7 @@ class NVD3Chart:
     show_legend = True
     show_labels = True
     assets_directory = './bower_components/'
+    display_container = True
 
     def __init__(self, **kwargs):
         """
@@ -129,8 +124,8 @@ class NVD3Chart:
         #Init Data
         self.series = []
         self.axislist = {}
-        self.template_page_nvd3 = Template(template_page_nvd3)
-        self.template_content_nvd3 = Template(template_content_nvd3)
+        self.template_page_nvd3 = template_page_nvd3
+        self.template_content_nvd3 = template_content_nvd3
         self.charttooltip_dateformat = '%d %b %Y'
 
         self.slugify_name(kwargs.get('name', self.model))
@@ -154,14 +149,14 @@ class NVD3Chart:
 
         #CDN http://cdnjs.com/libraries/nvd3/ needs to make sure it's up to date
         self.header_css = [
-            '<link href="%s" rel="stylesheet" />\n' % h for h in
+            '<link href="%s" rel="stylesheet" />' % h for h in
             (
                 self.get_link('nvd3/src/nv.d3.css'),
             )
         ]
 
         self.header_js = [
-            '<script src="%s"></script>\n' % h for h in
+            '<script src="%s"></script>' % h for h in
             (
                 self.get_link('d3/d3.min.js'),
                 self.get_link('nvd3/nv.d3.min.js'),
@@ -190,7 +185,7 @@ class NVD3Chart:
 
     def slugify_name(self, name):
         """Slufigy name with underscore"""
-        self.name = slugify(name).replace('-', '_')
+        self.name = slugify_unicode(name, separator='_')
 
     def add_serie(self, y, x, name=None, extra={}, **kwargs):
         """
@@ -236,8 +231,8 @@ class NVD3Chart:
         else:
             if self.model == 'pieChart':
                 serie = [{'label': x[i], 'value': y} for i, y in enumerate(y)]
-            elif self.model == 'linePlusBarWithFocusChart':
-                serie = [[x[i], y] for i, y in enumerate(y)]
+            # elif self.model == 'linePlusBarWithFocusChart':
+            #     serie = [[x[i], y] for i, y in enumerate(y)]
             else:
                 serie = [{'x': x[i], 'y': y} for i, y in enumerate(y)]
 
@@ -282,25 +277,26 @@ class NVD3Chart:
                 _end = (" + '" + str(_end) + "'") if _end else ''
 
                 if self.model == 'linePlusBarChart' or self.model == 'linePlusBarWithFocusChart':
-                    self.tooltip_condition_string += stab(3) + "if(key.indexOf('" + name + "') > -1 ){\n" +\
-                        stab(4) + "var y = " + _start + " String(graph.point.y) " + _end + ";\n" +\
-                        stab(3) + "}\n"
+                    if self.tooltip_condition_string:
+                        self.tooltip_condition_string += stab(5)
+                    self.tooltip_condition_string += stab(0) + "if(key.indexOf('" + name + "') > -1 ){\n" +\
+                        stab(6) + "var y = " + _start + " String(graph.point.y) " + _end + ";\n" +\
+                        stab(5) + "}\n"
                 elif self.model == 'cumulativeLineChart':
-                    self.tooltip_condition_string += stab(3) + "if(key == '" + name + "'){\n" +\
-                        stab(4) + "var y = " + _start + " String(e) " + _end + ";\n" +\
-                        stab(3) + "}\n"
+                    self.tooltip_condition_string += stab(0) + "if(key == '" + name + "'){\n" +\
+                        stab(6) + "var y = " + _start + " String(e) " + _end + ";\n" +\
+                        stab(5) + "}\n"
                 else:
-                    self.tooltip_condition_string += stab(3) + "if(key == '" + name + "'){\n" +\
-                        stab(4) + "var y = " + _start + " String(graph.point.y) " + _end + ";\n" +\
-                        stab(3) + "}\n"
+                    self.tooltip_condition_string += stab(5) + "if(key == '" + name + "'){\n" +\
+                        stab(6) + "var y = " + _start + " String(graph.point.y) " + _end + ";\n" +\
+                        stab(5) + "}\n"
 
             if self.model == 'pieChart':
                 _start = extra['tooltip']['y_start']
                 _end = extra['tooltip']['y_end']
                 _start = ("'" + str(_start) + "' + ") if _start else ''
                 _end = (" + '" + str(_end) + "'") if _end else ''
-                self.tooltip_condition_string += \
-                    "var y = " + _start + " String(y) " + _end + ";\n"
+                self.tooltip_condition_string += "var y = " + _start + " String(y) " + _end + ";\n"
 
         self.series.append(data_keyvalue)
 
@@ -336,8 +332,7 @@ class NVD3Chart:
         """
         self.buildcontainer()
         self.buildjschart()
-        self.htmlcontent = self.template_content_nvd3.substitute(container=self.container,
-                                                                 jschart=self.jschart)
+        self.htmlcontent = self.template_content_nvd3.render(chart=self)
 
     def buildhtml(self):
         """Build the HTML page
@@ -345,14 +340,11 @@ class NVD3Chart:
         Create html page
         Add Js code for nvd3
         """
-        self.buildhtmlheader()
-        self.buildcontainer()
-        self.buildjschart()
+        self.buildcontent()
+        self.content = self.htmlcontent
+        self.htmlcontent = self.template_page_nvd3.render(chart=self)
 
-        self.htmlcontent = self.template_page_nvd3.substitute(header=self.htmlheader,
-                                                              container=self.container,
-                                                              jschart=self.jschart)
-
+    #this is used by django-nvd3
     def buildhtmlheader(self):
         """generate HTML header content"""
         self.htmlheader = ''
@@ -380,171 +372,32 @@ class NVD3Chart:
 
         self.container += '<div id="%s"><svg %s></svg></div>\n' % (self.name, self.style)
 
-    def build_custom_tooltip(self):
-        """generate custom tooltip for the chart"""
-        if self.custom_tooltip_flag:
-            if not self.date_flag:
-                if self.model == 'pieChart':
-                    self.charttooltip = stab(2) + "chart.tooltipContent(function(key, y, e, graph) {\n" + \
-                        stab(3) + "var x = String(key);\n" +\
-                        stab(3) + self.tooltip_condition_string +\
-                        stab(3) + "tooltip_str = '<center><b>'+x+'</b></center>' + y;\n" +\
-                        stab(3) + "return tooltip_str;\n" + \
-                        stab(2) + "});\n"
-                else:
-                    self.charttooltip = stab(2) + "chart.tooltipContent(function(key, y, e, graph) {\n" + \
-                        stab(3) + "var x = String(graph.point.x);\n" +\
-                        stab(3) + "var y = String(graph.point.y);\n" +\
-                        self.tooltip_condition_string +\
-                        stab(3) + "tooltip_str = '<center><b>'+key+'</b></center>' + y + ' at ' + x;\n" +\
-                        stab(3) + "return tooltip_str;\n" + \
-                        stab(2) + "});\n"
-            else:
-                self.charttooltip = stab(2) + "chart.tooltipContent(function(key, y, e, graph) {\n" + \
-                    stab(3) + "var x = d3.time.format('%s')(new Date(parseInt(graph.point.x)));\n" \
-                    % self.charttooltip_dateformat +\
-                    stab(3) + "var y = String(graph.point.y);\n" +\
-                    self.tooltip_condition_string +\
-                    stab(3) + "tooltip_str = '<center><b>'+key+'</b></center>' + y + ' on ' + x;\n" +\
-                    stab(3) + "return tooltip_str;\n" + \
-                    stab(2) + "});\n"
-
     def buildjschart(self):
         """generate javascript code for the chart"""
 
         self.jschart = ''
-        if self.tag_script_js:
-            self.jschart += '\n<script>\n'
-
-        self.jschart += stab()
-
-        if self.jquery_on_ready:
-            self.jschart += '$(function(){'
-
-        self.jschart += 'nv.addGraph(function() {\n'
-
-        self.jschart += stab(2) + 'var chart = nv.models.%s()' % self.model
-        if self.use_interactive_guideline:
-            self.jschart += '.useInteractiveGuideline(true)'
-        self.jschart += ';\n'
-
-        if self.model != 'pieChart' and not self.color_list:
-            if self.color_category:
-                self.jschart += stab(2) + 'chart.color(d3.scale.%s().range());\n' % self.color_category
-
-        if self.stacked:
-            self.jschart += stab(2) + "chart.stacked(true);"
-
-        self.jschart += stab(2) + 'chart.margin({top: %s, right: %s, bottom: %s, left: %s})\n' % \
-            (self.margin_top, self.margin_right, self.margin_bottom, self.margin_left)
-
-        """
-        We want now to loop through all the defined axes and add:
-            chart.y2Axis
-                .tickFormat(function(d) { return '$' + d3.format(',.2f')(d) });
-        """
-        if self.model != 'pieChart':
-            for axis_name, a in list(self.axislist.items()):
-                # If we don't modify the axis at all, we skip over it.
-                if not a.items():
-                    continue
-                self.jschart += stab(2) + "chart.%s\n" % axis_name
-                for attr, value in list(a.items()):
-                    self.jschart += stab(3) + ".%s(%s);\n" % (attr, value)
-
-        if self.width:
-            self.d3_select_extra += ".attr('width', %s)\n" % self.width
-        if self.height:
-            self.d3_select_extra += ".attr('height', %s)\n" % self.height
-
-        if self.model == 'pieChart':
-            datum = "data_%s[0].values" % self.name
-        else:
-            datum = "data_%s" % self.name
 
         # add custom tooltip string in jschart
         # default condition (if build_custom_tooltip is not called explicitly with date_flag=True)
         if self.tooltip_condition_string == '':
             self.tooltip_condition_string = 'var y = String(graph.point.y);\n'
 
-        self.build_custom_tooltip()
-        self.jschart += self.charttooltip
-
-        # the shape attribute in kwargs is not applied when
-        # not allowing other shapes to be rendered
-        if self.model == 'scatterChart':
-            self.jschart += 'chart.scatter.onlyCircles(false);'
-
-        if self.model != 'discreteBarChart':
-            if self.show_legend:
-                self.jschart += stab(2) + "chart.showLegend(true);\n"
-            else:
-                self.jschart += stab(2) + "chart.showLegend(false);\n"
-
-        #showLabels only supported in pieChart
-        if self.model == 'pieChart':
-            if self.show_labels:
-                self.jschart += stab(2) + "chart.showLabels(true);\n"
-            else:
-                self.jschart += stab(2) + "chart.showLabels(false);\n"
-
-            if self.donut:
-                self.jschart += stab(2) + "chart.donut(true);\n"
-                self.jschart += stab(2) + "chart.donutRatio(%f);\n" % self.donutRatio
-            else:
-                self.jschart += stab(2) + "chart.donut(false);\n"
-
-        # add custom chart attributes
-        for attr, value in self.chart_attr.items():
-            if type(value) == str and value.startswith("."):
-                self.jschart += stab(2) + "chart.%s%s;\n" % (attr, value)
-            else:
-                self.jschart += stab(2) + "chart.%s(%s);\n" % (attr, value)
-
-        #Inject data to D3
-        self.jschart += stab(2) + "d3.select('#%s svg')\n" % self.name + \
-            stab(3) + ".datum(%s)\n" % datum + \
-            stab(3) + ".transition().duration(500)\n" + \
-            stab(3) + self.d3_select_extra + \
-            stab(3) + ".call(chart);\n\n"
-
-        if self.resize:
-            self.jschart += stab(1) + "nv.utils.windowResize(chart.update);\n"
-        self.jschart += stab(1) + "return chart;\n});"
-
-        if self.jquery_on_ready:
-            self.jschart += "\n});"
-
         #Include data
-        series_js = json.dumps(self.series)
-
-        if self.model == 'linePlusBarWithFocusChart':
-            append_to_data = ".map(function(series) {" + \
-                "series.values = series.values.map(function(d) { return {x: d[0], y: d[1] } });" + \
-                "return series; })"
-            self.jschart += """data_%s=%s%s;\n""" % (self.name, series_js, append_to_data)
-        else:
-            self.jschart += """data_%s=%s;\n""" % (self.name, series_js)
-
-        if self.tag_script_js:
-            self.jschart += "</script>"
+        self.series_js = json.dumps(self.series)
 
     def create_x_axis(self, name, label=None, format=None, date=False, custom_format=False):
-        """
-        Create X-axis
-        """
+        """Create X-axis"""
         axis = {}
         if custom_format and format:
             axis['tickFormat'] = format
-        else:
-            if format:
-                if format == 'AM_PM':
-                    axis['tickFormat'] = "function(d) { return get_am_pm(parseInt(d)); }"
-                else:
-                    axis['tickFormat'] = "d3.format(',%s')" % format
+        elif format:
+            if format == 'AM_PM':
+                axis['tickFormat'] = "function(d) { return get_am_pm(parseInt(d)); }"
+            else:
+                axis['tickFormat'] = "d3.format(',%s')" % format
 
         if label:
-            axis['axisLabel'] = label
+            axis['axisLabel'] = "'" + label + "'"
 
         #date format : see https://github.com/mbostock/d3/wiki/Time-Formatting
         if date:
@@ -566,12 +419,11 @@ class NVD3Chart:
 
         if custom_format and format:
             axis['tickFormat'] = format
-        else:
-            if format:
-                axis['tickFormat'] = "d3.format(',%s')" % format
+        elif format:
+            axis['tickFormat'] = "d3.format(',%s')" % format
 
         if label:
-            axis['axisLabel'] = label
+            axis['axisLabel'] = "'" + label + "'"
 
         #Add new axis to list of axis
         self.axislist[name] = axis
